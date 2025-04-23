@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Lesson Plan Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .typing {
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>📚 Lesson Plan Chat</h1>
+        </div>
+
+        <div id="chat" class="chat-box">
+            {% for item in historico %}
+            <div class="chat-message user">
+                <p>{{ item.prompt }}</p>
+            </div>
+
+            {% if item.imagem_url %}
+            <div class="chat-message user">
+                <img src="{{ item.imagem_url }}" alt="Imagem enviada">
+            </div>
+            {% endif %}
+
+            <div class="chat-message bot">
+                {{ item.resposta|safe }}
+            </div>
+            {% endfor %}
+        </div>
+
+        <form id="formulario" enctype="multipart/form-data" class="chat-form">
+            <textarea name="prompt" placeholder="Digite sua pergunta..." required></textarea>
+            <div class="mic-container">
+                <button type="button" id="microfone">🎤 Falar</button>
+                <label for="imagem" class="label-file">📎 Anexar imagem</label>
+                <span id="nome-arquivo" class="hint-arquivo">Nenhum arquivo</span>
+                <span id="status-gravacao"></span>
+                <input type="file" id="imagem" name="imagem" accept="image/*">
+            </div>
+            <div class="send-button-container">
+                <button type="submit">Enviar</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function mostrarHTMLAnimado(container, html, delay = 10) {
+            container.innerHTML = "";
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = html;
+
+            const nodes = Array.from(tempDiv.childNodes);
+
+            function processarNode(index) {
+                if (index >= nodes.length) return;
+
+                const node = nodes[index];
+                container.appendChild(node.cloneNode(true));
+                setTimeout(() => processarNode(index + 1), delay);
+            }
+
+            processarNode(0);
+        }
+
+        document.getElementById("formulario").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const form = this;
+            const formData = new FormData(form);
+            const chat = document.getElementById("chat");
+
+            const userMsg = document.createElement("div");
+            userMsg.className = "chat-message user";
+            userMsg.innerHTML = `<p>${formData.get("prompt")}</p>`;
+            chat.appendChild(userMsg);
+
+            const fileInput = document.getElementById("imagem");
+            if (fileInput.files.length > 0) {
+                const imageUrl = URL.createObjectURL(fileInput.files[0]);
+                const userImg = document.createElement("div");
+                userImg.className = "chat-message user";
+                userImg.innerHTML = `<img src="${imageUrl}" alt="Imagem enviada">`;
+                chat.appendChild(userImg);
+            }
+
+            const botMsg = document.createElement("div");
+            botMsg.className = "chat-message bot";
+            const loadingDots = document.createElement("div");
+            loadingDots.className = "typing-dots";
+            loadingDots.innerHTML = "<span>.</span><span>.</span><span>.</span>";
+            botMsg.appendChild(loadingDots);
+            chat.appendChild(botMsg);
+
+            chat.scrollTop = chat.scrollHeight;
+
+            try {
+                const response = await fetch("/processar", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+                const ultima = data.historico[data.historico.length - 1];
+
+                botMsg.innerHTML = "";
+                mostrarHTMLAnimado(botMsg, ultima.resposta);
+
+                form.reset();
+                nomeArquivoSpan.textContent = "Nenhum arquivo";
+                textarea.style.height = "auto";
+
+            } catch (error) {
+                botMsg.innerHTML = "<p>❌ Ocorreu um erro ao tentar responder.</p>";
+            }
+        });
+        const botaoMic = document.getElementById("microfone");
+        const textarea = document.querySelector("textarea");
+        const status = document.getElementById("status-gravacao");
+
+        if ("webkitSpeechRecognition" in window) {
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = "pt-BR";
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            botaoMic.addEventListener("click", () => {
+                recognition.start();
+                status.textContent = "🎙️ Ouvindo...";
+            });
+
+            recognition.onresult = (event) => {
+                const resultado = event.results[0][0].transcript;
+                textarea.value = resultado;
+                status.textContent = "✅ Texto inserido!";
+            };
+
+            recognition.onerror = (event) => {
+                status.textContent = "❌ Erro ao reconhecer voz: " + event.error;
+            };
+
+            recognition.onend = () => {
+                setTimeout(() => status.textContent = "", 3000);
+            };
+        } else {
+            botaoMic.disabled = true;
+            status.textContent = "Reconhecimento de voz não suportado neste navegador.";
+        }
+        const inputArquivo = document.getElementById("imagem");
+        const nomeArquivoSpan = document.getElementById("nome-arquivo");
+
+        inputArquivo.addEventListener("change", function () {
+            if (this.files.length > 0) {
+                const arquivo = this.files[0];
+                nomeArquivoSpan.textContent = `${arquivo.name}`;
+            } else {
+                nomeArquivoSpan.textContent = "Nenhum arquivo";
+            }
+        });
+
+        textarea.addEventListener("input", function () {
+            this.style.height = "auto"; // Redefine a altura para reavaliar
+            const newHeight = Math.min(this.scrollHeight, 200); // 200px é o max-height
+            this.style.height = newHeight + "px";
+        });
+    </script>
+</body>
+
+</html>
