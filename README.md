@@ -53,7 +53,3 @@ http://127.0.0.1:5000
 - Você pode anexar uma imagem de um conteúdo também.
 - Clique no botão de microfone para ditar a pergunta se preferir.
 - O sistema vai responder com um plano de aula estruturado.
-
-## 🧑‍💻 Autor
-
-Projeto feito por um estudante de Sistemas de Informação com 27 anos, que gosta de tecnologia, educação e inteligência artificial.
