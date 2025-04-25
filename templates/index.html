@@ -21,7 +21,7 @@
         <div id="chat" class="chat-box">
             {% for item in historico %}
             <div class="chat-message user">
-                <p>{{ item.prompt }}</p>
+                <p>{{ item.prompt | e }}</p>
             </div>
 
             {% if item.imagem_url %}
@@ -44,10 +44,9 @@
                 <span id="nome-arquivo" class="hint-arquivo">Nenhum arquivo</span>
                 <span id="status-gravacao"></span>
                 <input type="file" id="imagem" name="imagem" accept="image/*">
-            </div>
-            <div class="send-button-container">
                 <button type="submit">Enviar</button>
             </div>
+
         </form>
     </div>
 
@@ -128,18 +127,34 @@
         if ("webkitSpeechRecognition" in window) {
             const recognition = new webkitSpeechRecognition();
             recognition.lang = "pt-BR";
-            recognition.continuous = false;
-            recognition.interimResults = false;
+            recognition.continuous = true; 
+            recognition.interimResults = true;
 
+            let isListening = false; 
             botaoMic.addEventListener("click", () => {
-                recognition.start();
-                status.textContent = "🎙️ Ouvindo...";
+                if (isListening) {
+                    recognition.stop();  
+                    status.textContent = "🔴 Escuta finalizada. Você pode começar a falar novamente!";
+                    botaoMic.textContent = "🎤 Falar";  
+                } else {
+                    recognition.start();  
+                    status.textContent = "🎙️ Ouvindo...";
+                    botaoMic.textContent = "❌ Parar";
+                }
+                isListening = !isListening;
             });
 
             recognition.onresult = (event) => {
-                const resultado = event.results[0][0].transcript;
-                textarea.value = resultado;
-                status.textContent = "✅ Texto inserido!";
+                let resultadoFinal = "";
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        resultadoFinal += event.results[i][0].transcript + " ";
+                    }
+                }
+
+                if (resultadoFinal) {
+                    textarea.value += resultadoFinal; 
+                }
             };
 
             recognition.onerror = (event) => {
@@ -147,12 +162,15 @@
             };
 
             recognition.onend = () => {
-                setTimeout(() => status.textContent = "", 3000);
+                if (isListening) {
+                    recognition.start();
+                }
             };
         } else {
             botaoMic.disabled = true;
             status.textContent = "Reconhecimento de voz não suportado neste navegador.";
         }
+        
         const inputArquivo = document.getElementById("imagem");
         const nomeArquivoSpan = document.getElementById("nome-arquivo");
 
@@ -166,8 +184,8 @@
         });
 
         textarea.addEventListener("input", function () {
-            this.style.height = "auto"; // Redefine a altura para reavaliar
-            const newHeight = Math.min(this.scrollHeight, 200); // 200px é o max-height
+            this.style.height = "auto"; 
+            const newHeight = Math.min(this.scrollHeight, 200);
             this.style.height = newHeight + "px";
         });
     </script>
